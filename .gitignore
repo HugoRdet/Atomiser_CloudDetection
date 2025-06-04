@@ -2,6 +2,10 @@
 __pycache__/
 *.py[cod]
 key_vast
+.vscode/*
+*.TIF
+*.pt
+*.png
 key_vast.pub
 */__MACOSX/*
 __MACOSX
@@ -9,6 +13,7 @@ __MACOSX
 *.stdout
 *$py.class
 wandb/
+
 **/.DS_Store
 training/wandb_runs/*
 lightning_logs/

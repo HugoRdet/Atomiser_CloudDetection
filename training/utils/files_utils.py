@@ -34,6 +34,7 @@ def open_parquet(path):
     return pd.read_parquet(path, engine='fastparquet')
 
 
+
 def ensure_folder_exists(folder_path: str) -> None:
     """
     Checks if a folder exists at the given path; creates it if it does not exist.

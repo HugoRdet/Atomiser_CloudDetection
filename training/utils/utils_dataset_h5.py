@@ -83,9 +83,11 @@ class CloudSEN12Dataset(Dataset):
             if self.binary:
                 y[y==3]=0 #means 0 -> not cloud
                 y[y==2]=1 #      1 -> cloud
+
+            resolution=10
             
 
-            return x, y
+            return x, y, resolution
 
         except Exception as e:
             print(f"❌ Error in __getitem__({idx}): {e}")

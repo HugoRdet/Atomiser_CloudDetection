@@ -99,8 +99,8 @@ class Model(pl.LightningModule):
                 
             
     def training_step(self, batch, batch_idx):
-        x,y= batch
-        y_hat = self.forward(x,training=True)
+        x,y,resolution= batch
+        y_hat = self.forward(x,resolution=resolution,training=True)
         preds = torch.argmax(y_hat.clone(), dim=1)
         loss = self.loss(y_hat, y)
 
@@ -166,8 +166,8 @@ class Model(pl.LightningModule):
 
         
     def validation_step(self, batch, batch_idx,dataloader_idx=0):
-        x,y= batch
-        y_hat = self.forward(x,training=True)
+        x,y,resolution= batch
+        y_hat = self.forward(x,resolution=resolution,training=True)
         preds = torch.argmax(y_hat.clone(), dim=1)
         loss = self.loss(y_hat, y)
 
@@ -206,8 +206,8 @@ class Model(pl.LightningModule):
         
         
     def test_step(self, batch, batch_idx):
-        x,y= batch
-        y_hat = self.forward(x,training=True)
+        x,y,resolution= batch
+        y_hat = self.forward(x,resolution=resolution,training=True)
         preds = torch.argmax(y_hat.clone(), dim=1)
         loss = self.loss(y_hat, y)
 

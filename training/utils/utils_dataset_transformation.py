@@ -54,7 +54,6 @@ class transformations_config(nn.Module):
 
         self.config=config
   
-        self.nb_tokens_limit=config["trainer"]["max_tokens"]
 
         self.gaussian_means=[]
         self.gaussian_stds=[]
@@ -104,7 +103,7 @@ class transformations_config(nn.Module):
             res.append(band["resolution"])
 
 
-        return torch.from_numpy(np.array([20 for _ in range(12)]))
+        return torch.from_numpy(np.array([10 for _ in range(12)]))
    
 
 
@@ -301,6 +300,7 @@ class transformations_config(nn.Module):
         # Ensure inputs are PyTorch tensors and on the same device as self.gaussian_means.
         device = self.gaussian_means.device
 
+     
         
         lambda_centers = torch.as_tensor(lambda_centers, dtype=torch.float32, device=device)
         bandwidths = torch.as_tensor(bandwidths, dtype=torch.float32, device=device)
@@ -311,6 +311,8 @@ class transformations_config(nn.Module):
         
         
         t = torch.linspace(0, 1, num_points, device=device)  
+
+
         
         # Compute the sampled wavelengths for each spectral band using broadcasting.
         # Each spectral band gets its own set of sample points.
@@ -324,13 +326,16 @@ class transformations_config(nn.Module):
                 self.gaussian_stds.unsqueeze(0).unsqueeze(0)) ** 2
             )
         )
+
+
+        
         
         # For each spectral band and each Gaussian, find the maximum activation across the sampled points.
         # The max is taken along dim=1 (the num_points axis), returning a tensor of shape [s, num_gaussians].
         
         encoding = gaussians.max(dim=-2).values
        
-
+        
         
         return encoding
 
@@ -371,7 +376,9 @@ class transformations_config(nn.Module):
 
         
         if self.config["Atomiser"]["wavelength_encoding"]=="GAUSSIANS":
+ 
             encoded=self.compute_gaussian_band_max_encoding(wavelength, bandwidth, num_points=50).unsqueeze(0).unsqueeze(0).unsqueeze(0)
+           
             
             encoded=einops.repeat(encoded,'b t h w c d  -> b (T t) (h h1) (w w1) c d ',T=T_size,h1=img_size,w1=img_size)
 
@@ -454,6 +461,8 @@ class transformations_config(nn.Module):
 
         # 2) Wavelength encoding
 
+
+
         central_wavelength_processing = self.wavelength_processing(
             im_sen.device,
             tmp_central_wavelength,
@@ -464,14 +473,18 @@ class transformations_config(nn.Module):
             modality=mode
         )
 
+
+
         # 3) Band‑value encoding
         value_processed = self.get_bvalue_processing(im_sen)
-
+      
         # 4) Positional encoding
         band_post_proc = self.get_positional_processing(
             im_sen.shape, res,resolution, T_size, B_size, mode, im_sen.device
         )
-     
+
+
+        
 
         tokens = torch.cat([
             central_wavelength_processing,
@@ -488,82 +501,6 @@ class transformations_config(nn.Module):
 
     
 
-    def apply_transformations_SAR(self,im_sen,mask_sen,mode,wave_encoding=None):
-        if mode=="s1":
-            tmp_infos=self.bands_sen2_infos
-            res=None
-            tmp_bandwidth=None
-
-        
-        im_sen=im_sen[:,:,:,:,:-1]
-        mask_sen=mask_sen[:,:,:,:,:-1]
-
-
-     
-        
-        
-        c1 = im_sen.shape[-1]
-        time_encoding = time_encoding.expand(
-            -1,   # B stays the same
-            -1,   # T stays the same
-            -1,   # H stays the same
-            -1,   # W stays the same
-            c1,  # expand the singleton c‐dimension
-            -1    # E stays the same
-        )  # now [B, T, H, W, c1, E]
-
-        T_size=im_sen.shape[1]
-        B_size=im_sen.shape[0]
-
-            
-        shape_input_wavelength=self.get_shape_attributes_config("wavelength")
-        target_shape_w=(im_sen.shape[0],im_sen.shape[1],im_sen.shape[2],im_sen.shape[3],im_sen.shape[4],shape_input_wavelength)
-        central_wavelength_processing=torch.empty(target_shape_w)
-        
-        
-        
-        if wave_encoding!=None:
-            VV,VH=wave_encoding
-            central_wavelength_processing[:,:,:,:,0].copy_(VV)
-            central_wavelength_processing[:,:,:,:,1].copy_(VH)
-               
-        value_processed=self.get_bvalue_processing(im_sen)
-        
-
-
-
-        #positional encoding
-
-        #get_positional_processing(self,img_shape,resolution,T_size,B_size,modality,device):
-        band_post_proc = self.get_positional_processing(im_sen.shape,res,T_size,B_size,mode,im_sen.device )
-
-   
-
-
-        tokens=torch.cat([central_wavelength_processing.to(im_sen.device),
-                          value_processed.to(im_sen.device),
-                          band_post_proc.to(im_sen.device),
-                ],dim=5)
-        
-        
-
-        tokens=einops.rearrange(tokens,"b t h w c f ->b  (t h w c) f")
-        token_masks=mask_sen
-        token_masks=einops.rearrange(mask_sen,"b t h w c -> b (t h w c)")
-
-
-
-        
-
-        
-
-        
-        
-
-   
-    
-
-        return tokens,token_masks
     
     def get_tokens(self,img,mask,resolution,mode="optique",modality="s2",wave_encoding=None):
         
@@ -581,15 +518,21 @@ class transformations_config(nn.Module):
         L_masks=[]
 
         
-        
         img=img.unsqueeze(1)
+
+        if mask==None:
+            mask=torch.zeros(img.shape)
+        else:
+            mask=mask.unsqueeze(1)
+
         img=einops.rearrange(img,"B T C H W -> B T H W C")
-        mask=mask.unsqueeze(1)
+
+        
         mask=einops.rearrange(mask,"B T C H W -> B T H W C")
         
         if self.config["dataset"]["S2"]:
-            tmp_img,tmp_mask=self.apply_temporal_spatial_transforms(img, mask)
-            tokens_s2,tokens_mask_s2=self.get_tokens(tmp_img,tmp_mask,resolution,mode="optique",modality="s2")
+        
+            tokens_s2,tokens_mask_s2=self.get_tokens(img,mask,resolution,mode="optique",modality="s2")
             L_masks.append(tokens_mask_s2)
             L_tokens.append(tokens_s2)
 
